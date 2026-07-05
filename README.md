@@ -56,8 +56,8 @@ uvx --from . llm-org-cost doctor
 After the package is published to PyPI:
 
 ```bash
-uvx llm-org-cost-monitor llm-org-cost doctor
-uvx llm-org-cost-monitor llm-org-cost summary --period mtd
+uvx --from llm-org-cost-monitor llm-org-cost doctor
+uvx --from llm-org-cost-monitor llm-org-cost summary --period mtd
 ```
 
 Installed command examples:
