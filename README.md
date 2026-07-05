@@ -2,7 +2,7 @@
 
 Local Python 3.12 CLI for checking organization-level costs across one OpenAI organization and one Anthropic organization.
 
-The installed command is `llm-org-cost`. The project name includes `org` because it reads provider organization cost reports rather than estimating individual request or model costs.
+The primary installed command is `llm-org-cost-monitor`. The shorter `llm-org-cost` command is also provided as a compatibility alias. The project name includes `org` because it reads provider organization cost reports rather than estimating individual request or model costs.
 
 ## Setup
 
@@ -49,24 +49,24 @@ The CLI does not accept API keys as command-line flags. This keeps secrets out o
 Local development:
 
 ```bash
-uv run llm-org-cost doctor
-uvx --from . llm-org-cost doctor
+uv run llm-org-cost-monitor doctor
+uvx --from . llm-org-cost-monitor doctor
 ```
 
 After the package is published to PyPI:
 
 ```bash
-uvx --from llm-org-cost-monitor llm-org-cost doctor
-uvx --from llm-org-cost-monitor llm-org-cost summary --period mtd
+uvx llm-org-cost-monitor doctor
+uvx llm-org-cost-monitor summary --period mtd
 ```
 
 Installed command examples:
 
 ```bash
-llm-org-cost doctor
-llm-org-cost summary --period mtd
-llm-org-cost summary --period last-7d --format json
-llm-org-cost summary --start 2026-07-01 --end 2026-07-05 --group line-item --format csv
+llm-org-cost-monitor doctor
+llm-org-cost-monitor summary --period mtd
+llm-org-cost-monitor summary --period last-7d --format json
+llm-org-cost-monitor summary --start 2026-07-01 --end 2026-07-05 --group line-item --format csv
 ```
 
 `--start` and `--end` are calendar dates. The end date is inclusive for the CLI and converted to the provider APIs' exclusive end timestamp.
@@ -112,8 +112,9 @@ Official references:
 ```bash
 uv sync --dev
 uv run pytest
+uv run llm-org-cost-monitor --help
 uv run llm-org-cost --help
-uvx --from . llm-org-cost --help
+uvx --from . llm-org-cost-monitor --help
 uv build
 ```
 
