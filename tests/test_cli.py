@@ -90,6 +90,50 @@ def test_summary_csv(monkeypatch):
     assert "Input Tokens,anthropic,USD,2.25,1" in result.stdout
 
 
+def test_summary_filters_to_openai_provider(monkeypatch):
+    patch_clients(monkeypatch)
+
+    class UnexpectedAnthropic:
+        def __init__(self, key, label):
+            raise AssertionError("Anthropic client should not be built")
+
+    monkeypatch.setattr(cli, "AnthropicCostClient", UnexpectedAnthropic)
+    monkeypatch.delenv("ANTHROPIC_ADMIN_KEY")
+
+    result = runner.invoke(
+        cli.app,
+        ["summary", "--period", "mtd", "--provider", "openai", "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert {record["provider"] for record in payload["records"]} == {"openai"}
+    assert [row["group"] for row in payload["summary"]] == ["OpenAI Org"]
+    assert "ANTHROPIC_ADMIN_KEY is not set" not in result.stderr
+
+
+def test_summary_filters_to_anthropic_provider(monkeypatch):
+    patch_clients(monkeypatch)
+
+    class UnexpectedOpenAI:
+        def __init__(self, key, label):
+            raise AssertionError("OpenAI client should not be built")
+
+    monkeypatch.setattr(cli, "OpenAICostClient", UnexpectedOpenAI)
+    monkeypatch.delenv("OPENAI_ADMIN_KEY")
+
+    result = runner.invoke(
+        cli.app,
+        ["summary", "--period", "mtd", "--provider", "anthropic", "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert {record["provider"] for record in payload["records"]} == {"anthropic"}
+    assert [row["group"] for row in payload["summary"]] == ["Anthropic Org"]
+    assert "OPENAI_ADMIN_KEY is not set" not in result.stderr
+
+
 def test_summary_project_workspace_group(monkeypatch):
     patch_clients(monkeypatch)
 

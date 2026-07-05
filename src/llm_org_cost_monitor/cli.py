@@ -17,6 +17,7 @@ err_console = Console(stderr=True)
 
 OutputFormat = Literal["table", "json", "csv"]
 PeriodOption = Literal["mtd", "last-7d", "last-30d"]
+ProviderOption = Literal["all", "openai", "anthropic"]
 
 
 @app.command()
@@ -24,6 +25,7 @@ def summary(
     period: Annotated[PeriodOption | None, typer.Option(help="Preset period.")] = None,
     start: Annotated[str | None, typer.Option(help="Start date, YYYY-MM-DD.")] = None,
     end: Annotated[str | None, typer.Option(help="Inclusive end date, YYYY-MM-DD.")] = None,
+    provider: Annotated[ProviderOption, typer.Option(help="Provider to include.")] = "all",
     group: Annotated[GroupBy, typer.Option(help="Summary grouping.")] = "provider",
     format: Annotated[OutputFormat, typer.Option(help="Output format.")] = "table",
 ) -> None:
@@ -38,10 +40,13 @@ def summary(
     warnings = []
     failures = []
 
-    for build_client in (
-        lambda: OpenAICostClient(settings.openai_admin_key, settings.openai_label),
-        lambda: AnthropicCostClient(settings.anthropic_admin_key, settings.anthropic_label),
-    ):
+    provider_clients = (
+        ("openai", lambda: OpenAICostClient(settings.openai_admin_key, settings.openai_label)),
+        ("anthropic", lambda: AnthropicCostClient(settings.anthropic_admin_key, settings.anthropic_label)),
+    )
+    for provider_name, build_client in provider_clients:
+        if provider != "all" and provider != provider_name:
+            continue
         try:
             client = build_client()
             provider_records, provider_warnings = client.fetch_costs(date_range)

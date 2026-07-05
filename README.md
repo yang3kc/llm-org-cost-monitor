@@ -65,6 +65,8 @@ Installed command examples:
 ```bash
 llm-org-cost-monitor doctor
 llm-org-cost-monitor summary --period mtd
+llm-org-cost-monitor summary --period mtd --provider openai
+llm-org-cost-monitor summary --period mtd --provider anthropic
 llm-org-cost-monitor summary --period mtd --group project-workspace
 llm-org-cost-monitor summary --period mtd --group api-key
 llm-org-cost-monitor summary --period mtd --group day-project-workspace
@@ -73,6 +75,8 @@ llm-org-cost-monitor summary --start 2026-07-01 --end 2026-07-05 --group line-it
 ```
 
 `--start` and `--end` are calendar dates. The end date is inclusive for the CLI and converted to the provider APIs' exclusive end timestamp.
+
+Use `--provider openai` or `--provider anthropic` to fetch and show only one provider. The default is `--provider all`.
 
 Supported summary groups:
 
