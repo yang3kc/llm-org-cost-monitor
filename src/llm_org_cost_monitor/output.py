@@ -15,13 +15,13 @@ from .models import CostRecord, GroupBy, SummaryRow, record_to_json, summary_to_
 
 def print_table(rows: list[SummaryRow], group_by: GroupBy) -> None:
     table = Table(title=f"LLM Organization Costs by {group_by}")
-    table.add_column("Group")
     table.add_column("Provider")
+    table.add_column("Group")
     table.add_column("Currency")
     table.add_column("Amount", justify="right")
     table.add_column("Records", justify="right")
-    for row in rows:
-        table.add_row(row.group, row.provider, row.currency, _money(row.amount), str(row.records))
+    for row in sorted(rows, key=lambda row: (row.provider, -row.amount, row.group, row.currency)):
+        table.add_row(row.provider, row.group, row.currency, _money(row.amount), str(row.records))
     Console().print(table)
 
 
@@ -50,7 +50,7 @@ def print_csv(rows: list[SummaryRow]) -> None:
 
 
 def _money(value: Decimal) -> str:
-    return f"{value:.6f}".rstrip("0").rstrip(".")
+    return f"${value:.2f}"
 
 
 def _json_default(value: Any) -> Any:
