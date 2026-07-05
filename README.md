@@ -22,6 +22,28 @@ ANTHROPIC_ACCOUNT_LABEL=Anthropic
 
 `.env` is ignored by git and must not be committed.
 
+## Configuration
+
+The CLI reads configuration from environment variables. For local use, you can either export variables in your shell or put them in a `.env` file in the directory where you run the command.
+
+```bash
+export OPENAI_ADMIN_KEY=...
+export ANTHROPIC_ADMIN_KEY=...
+export OPENAI_ACCOUNT_LABEL=OpenAI
+export ANTHROPIC_ACCOUNT_LABEL=Anthropic
+```
+
+```dotenv
+OPENAI_ADMIN_KEY=...
+ANTHROPIC_ADMIN_KEY=...
+OPENAI_ACCOUNT_LABEL=OpenAI
+ANTHROPIC_ACCOUNT_LABEL=Anthropic
+```
+
+Only one provider key is required if you only want reports for that provider. The account label variables are optional and default to `OpenAI` and `Anthropic`.
+
+The CLI does not accept API keys as command-line flags. This keeps secrets out of shell history, terminal scrollback, and process listings.
+
 ## Usage
 
 Local development:
