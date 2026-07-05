@@ -14,14 +14,20 @@ from .models import CostRecord, GroupBy, SummaryRow, record_to_json, summary_to_
 
 
 def print_table(rows: list[SummaryRow], group_by: GroupBy) -> None:
+    show_currency = len({row.currency for row in rows}) > 1
     table = Table(title=f"LLM Organization Costs by {group_by}")
     table.add_column("Provider")
     table.add_column("Group")
-    table.add_column("Currency")
+    if show_currency:
+        table.add_column("Currency")
     table.add_column("Amount", justify="right")
     table.add_column("Records", justify="right")
     for row in sorted(rows, key=lambda row: (row.provider, -row.amount, row.group, row.currency)):
-        table.add_row(row.provider, row.group, row.currency, _money(row.amount), str(row.records))
+        values = [row.provider, row.group]
+        if show_currency:
+            values.append(row.currency)
+        values.extend([_money(row.amount), str(row.records)])
+        table.add_row(*values)
     Console().print(table)
 
 
