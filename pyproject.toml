@@ -8,8 +8,19 @@ version = "0.1.0"
 description = "CLI for OpenAI and Anthropic organization cost reports"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Kaicheng Yang" }]
+keywords = ["anthropic", "cli", "cost-monitoring", "openai", "usage-reporting"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Utilities",
+]
 dependencies = [
   "httpx>=0.27",
   "python-dotenv>=1.0",
@@ -17,7 +28,12 @@ dependencies = [
   "typer>=0.12",
 ]
 
-[project.optional-dependencies]
+[project.urls]
+Homepage = "https://github.com/yang3kc/llm-org-cost-monitor"
+Repository = "https://github.com/yang3kc/llm-org-cost-monitor"
+Issues = "https://github.com/yang3kc/llm-org-cost-monitor/issues"
+
+[dependency-groups]
 dev = [
   "pytest>=8.0",
 ]

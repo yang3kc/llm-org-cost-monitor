@@ -7,9 +7,7 @@ The installed command is `llm-org-cost`. The project name includes `org` because
 ## Setup
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync --dev
 cp .env.example .env
 ```
 
@@ -25,6 +23,22 @@ ANTHROPIC_ACCOUNT_LABEL=Anthropic
 `.env` is ignored by git and must not be committed.
 
 ## Usage
+
+Local development:
+
+```bash
+uv run llm-org-cost doctor
+uvx --from . llm-org-cost doctor
+```
+
+After the package is published to PyPI:
+
+```bash
+uvx llm-org-cost-monitor llm-org-cost doctor
+uvx llm-org-cost-monitor llm-org-cost summary --period mtd
+```
+
+Installed command examples:
 
 ```bash
 llm-org-cost doctor
@@ -74,5 +88,22 @@ Official references:
 ## Development
 
 ```bash
-pytest
+uv sync --dev
+uv run pytest
+uv run llm-org-cost --help
+uvx --from . llm-org-cost --help
+uv build
+```
+
+## Release
+
+Releases are published by GitHub Actions when a version tag matching `v*` is pushed. The workflow installs uv, syncs locked development dependencies, runs the test suite, builds the source and wheel distributions, and publishes to PyPI with Trusted Publishing.
+
+Before the first release, configure PyPI Trusted Publishing for:
+
+```text
+Repository owner: yang3kc
+Repository name: llm-org-cost-monitor
+Workflow filename: release.yml
+Environment name: <blank>
 ```
