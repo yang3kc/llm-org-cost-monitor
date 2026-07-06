@@ -65,11 +65,18 @@ Installed command examples:
 ```bash
 llm-org-cost-monitor doctor
 llm-org-cost-monitor summary --period mtd
+llm-org-cost-monitor summary --period mtd --provider openai
+llm-org-cost-monitor summary --period mtd --provider anthropic
+llm-org-cost-monitor summary --period mtd --group project-workspace
+llm-org-cost-monitor summary --period mtd --group api-key
+llm-org-cost-monitor summary --period mtd --group day-project-workspace
 llm-org-cost-monitor summary --period last-7d --format json
 llm-org-cost-monitor summary --start 2026-07-01 --end 2026-07-05 --group line-item --format csv
 ```
 
 `--start` and `--end` are calendar dates. The end date is inclusive for the CLI and converted to the provider APIs' exclusive end timestamp.
+
+Use `--provider openai` or `--provider anthropic` to fetch and show only one provider. The default is `--provider all`.
 
 Supported summary groups:
 
@@ -78,6 +85,11 @@ Supported summary groups:
 - `workspace`
 - `line-item`
 - `day`
+- `project-workspace`
+- `api-key`
+- `day-project-workspace`
+
+`project-workspace` combines the two provider-native ownership views: OpenAI costs are grouped by project and Anthropic costs are grouped by workspace. `api-key` groups OpenAI costs by `api_key_id`; Anthropic rows are reported as `Unsupported/Unattributed` because Anthropic cost reports do not currently expose API key attribution. `day-project-workspace` applies the combined project/workspace view per day.
 
 Supported output formats:
 
@@ -87,7 +99,7 @@ Supported output formats:
 
 ## Provider APIs
 
-OpenAI uses `GET /v1/organization/costs` with `bucket_width=1d`, Unix UTC timestamps, pagination via `next_page`, and grouping by `project_id` and `line_item`.
+OpenAI uses `GET /v1/organization/costs` with `bucket_width=1d`, Unix UTC timestamps, pagination via `next_page`, and grouping by `project_id`, `api_key_id`, and `line_item`.
 
 Anthropic uses `GET /v1/organizations/cost_report` with RFC3339 UTC timestamps, pagination via `next_page`, and grouping by `workspace_id` and `description`.
 

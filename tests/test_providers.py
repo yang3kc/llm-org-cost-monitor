@@ -30,6 +30,7 @@ def test_openai_parses_costs_and_project_names():
                             {
                                 "amount": {"value": 1.23, "currency": "usd"},
                                 "project_id": "proj_1",
+                                "api_key_id": "key_1",
                                 "line_item": "Responses API",
                             }
                         ],
@@ -47,8 +48,10 @@ def test_openai_parses_costs_and_project_names():
     assert records[0].amount == Decimal("1.23")
     assert records[0].currency == "USD"
     assert records[0].project_name == "Lab"
+    assert records[0].api_key_id == "key_1"
     assert records[0].line_item == "Responses API"
     assert "group_by=project_id" in seen_urls[-1]
+    assert "group_by=api_key_id" in seen_urls[-1]
     assert "group_by=line_item" in seen_urls[-1]
 
 

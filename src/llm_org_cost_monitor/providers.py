@@ -9,7 +9,7 @@ import httpx
 from .dates import DateRange
 from .models import CostRecord, ProviderStatus
 
-USER_AGENT = "llm-org-cost-monitor/0.1.0"
+USER_AGENT = "llm-org-cost-monitor/0.1.2"
 
 
 class ProviderAPIError(RuntimeError):
@@ -48,6 +48,7 @@ class OpenAICostClient:
             ("bucket_width", "1d"),
             ("limit", 180),
             ("group_by", "project_id"),
+            ("group_by", "api_key_id"),
             ("group_by", "line_item"),
         ]
 
@@ -68,6 +69,7 @@ class OpenAICostClient:
                             currency=currency,
                             project_id=project_id,
                             project_name=project_names.get(project_id) if project_id else None,
+                            api_key_id=result.get("api_key_id"),
                             line_item=result.get("line_item"),
                             raw_amount=amount_obj,
                         )
@@ -159,6 +161,7 @@ class AnthropicCostClient:
                             date=bucket_date,
                             amount=_anthropic_amount_to_usd(raw_amount),
                             currency=str(result.get("currency") or "USD").upper(),
+                            api_key_id=result.get("api_key_id"),
                             workspace_id=workspace_id,
                             workspace_name=workspace_names.get(workspace_id) if workspace_id else None,
                             line_item=result.get("description"),

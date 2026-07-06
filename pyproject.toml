@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "llm-org-cost-monitor"
-version = "0.1.1"
+version = "0.1.2"
 description = "CLI for OpenAI and Anthropic organization cost reports"
 readme = "README.md"
 requires-python = ">=3.12"

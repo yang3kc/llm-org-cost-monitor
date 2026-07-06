@@ -6,7 +6,16 @@ from decimal import Decimal
 from typing import Any, Literal
 
 ProviderName = Literal["openai", "anthropic"]
-GroupBy = Literal["provider", "project", "workspace", "line-item", "day"]
+GroupBy = Literal[
+    "provider",
+    "project",
+    "workspace",
+    "line-item",
+    "day",
+    "project-workspace",
+    "api-key",
+    "day-project-workspace",
+]
 
 
 @dataclass(frozen=True)
@@ -18,6 +27,7 @@ class CostRecord:
     currency: str
     project_id: str | None = None
     project_name: str | None = None
+    api_key_id: str | None = None
     workspace_id: str | None = None
     workspace_name: str | None = None
     line_item: str | None = None
@@ -34,7 +44,18 @@ class CostRecord:
             return self.line_item or "Unattributed"
         if group_by == "day":
             return self.date.isoformat()
+        if group_by == "project-workspace":
+            return self.project_or_workspace_name()
+        if group_by == "api-key":
+            return self.api_key_id or ("Unsupported/Unattributed" if self.provider == "anthropic" else "Unattributed")
+        if group_by == "day-project-workspace":
+            return f"{self.date.isoformat()} / {self.project_or_workspace_name()}"
         raise ValueError(f"Unsupported group: {group_by}")
+
+    def project_or_workspace_name(self) -> str:
+        if self.provider == "openai":
+            return self.project_name or self.project_id or "Unattributed"
+        return self.workspace_name or self.workspace_id or "Default/Unattributed"
 
 
 @dataclass(frozen=True)
@@ -78,6 +99,7 @@ def record_to_json(record: CostRecord) -> dict[str, Any]:
         "currency": record.currency,
         "project_id": record.project_id,
         "project_name": record.project_name,
+        "api_key_id": record.api_key_id,
         "workspace_id": record.workspace_id,
         "workspace_name": record.workspace_name,
         "line_item": record.line_item,
