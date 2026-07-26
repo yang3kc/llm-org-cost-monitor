@@ -35,6 +35,8 @@ def load_entries(path: Path) -> list[LedgerEntry]:
         return []
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise LedgerError(f"{path}: cannot read ledger file: {exc}") from exc
     except ValueError as exc:
         raise LedgerError(f"{path}: ledger file is not valid JSON: {exc}") from exc
     if not isinstance(raw, dict):
@@ -42,8 +44,8 @@ def load_entries(path: Path) -> list[LedgerEntry]:
     version = raw.get("version")
     if not isinstance(version, int) or isinstance(version, bool):
         raise LedgerError(f"{path}: missing or invalid ledger version")
-    if version > LEDGER_VERSION:
-        raise LedgerError(f"{path}: unsupported ledger version {version} (this tool supports up to {LEDGER_VERSION})")
+    if version != LEDGER_VERSION:
+        raise LedgerError(f"{path}: unsupported ledger version {version} (this tool supports version {LEDGER_VERSION})")
     raw_entries = raw.get("entries")
     if not isinstance(raw_entries, list):
         raise LedgerError(f"{path}: 'entries' must be a list")
@@ -52,15 +54,18 @@ def load_entries(path: Path) -> list[LedgerEntry]:
 
 def append_entry(path: Path, entry: LedgerEntry) -> None:
     load_entries(path)
-    raw_entries: list[dict[str, Any]] = []
-    if path.exists():
-        raw_entries = json.loads(path.read_text(encoding="utf-8")).get("entries", [])
-    raw_entries.append(entry_to_json(entry))
-    payload = {"version": LEDGER_VERSION, "entries": raw_entries}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(path.name + ".tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp_path, path)
+    try:
+        raw_entries: list[dict[str, Any]] = []
+        if path.exists():
+            raw_entries = json.loads(path.read_text(encoding="utf-8")).get("entries", [])
+        raw_entries.append(entry_to_json(entry))
+        payload = {"version": LEDGER_VERSION, "entries": raw_entries}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_name(path.name + ".tmp")
+        tmp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        os.replace(tmp_path, path)
+    except OSError as exc:
+        raise LedgerError(f"{path}: cannot write ledger file: {exc}") from exc
 
 
 def entry_to_json(entry: LedgerEntry) -> dict[str, Any]:

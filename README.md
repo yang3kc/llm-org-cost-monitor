@@ -149,6 +149,7 @@ Hand-editing the file is supported; unknown entry keys are preserved. A negative
 Accuracy caveats:
 
 - The estimate is deliberately conservative: spend on the anchor date itself is subtracted in full, even spend that occurred before you took the snapshot, so the estimate can be slightly lower than reality on and near the anchor date.
+- In the other direction, providers report spend with some lag, so the most recent usage may not be counted yet; intraday estimates can run slightly high until reporting catches up.
 - Provider cost APIs report usage costs only. Taxes, fees, and other invoice adjustments are not included.
 - Expired or promotional credits are invisible to this tool.
 - Only USD is supported; spend records in other currencies are excluded with a warning.

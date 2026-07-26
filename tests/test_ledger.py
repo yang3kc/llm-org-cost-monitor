@@ -84,6 +84,7 @@ def test_append_preserves_unknown_keys(tmp_path):
         "not json",
         json.dumps([1, 2]),
         json.dumps({"entries": []}),
+        json.dumps({"version": 0, "entries": []}),
         json.dumps({"version": 2, "entries": []}),
         json.dumps({"version": 1, "entries": {}}),
         json.dumps({"version": 1, "entries": [{"provider": "google", "type": "set", "date": "2026-07-01", "amount": "1"}]}),
@@ -120,6 +121,26 @@ def test_load_error_names_path_and_entry_index(tmp_path):
 
     assert str(path) in str(excinfo.value)
     assert "entry 1" in str(excinfo.value)
+
+
+def test_load_wraps_read_oserror_as_ledger_error(tmp_path):
+    path = tmp_path / "ledger.json"
+    path.mkdir()
+
+    with pytest.raises(LedgerError) as excinfo:
+        load_entries(path)
+
+    assert "cannot read" in str(excinfo.value)
+
+
+def test_append_wraps_write_oserror_as_ledger_error(tmp_path):
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not a directory")
+
+    with pytest.raises(LedgerError) as excinfo:
+        append_entry(blocker / "ledger.json", entry())
+
+    assert "cannot write" in str(excinfo.value)
 
 
 def test_load_tolerates_unknown_entry_keys(tmp_path):
