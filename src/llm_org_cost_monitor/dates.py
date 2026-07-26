@@ -42,6 +42,13 @@ def range_for_period(period: Period, today: date | None = None) -> DateRange:
     return DateRange(start=start, end_exclusive=today + timedelta(days=1))
 
 
+def range_since(start: date, today: date | None = None) -> DateRange:
+    today = today or date.today()
+    if start > today:
+        raise ValueError(f"start date {start.isoformat()} is after today {today.isoformat()}")
+    return DateRange(start=start, end_exclusive=today + timedelta(days=1))
+
+
 def parse_cli_range(start: str, end: str) -> DateRange:
     start_date = date.fromisoformat(start)
     end_date = date.fromisoformat(end)

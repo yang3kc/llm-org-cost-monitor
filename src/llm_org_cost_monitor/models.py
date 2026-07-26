@@ -68,6 +68,19 @@ class SummaryRow:
 
 
 @dataclass(frozen=True)
+class BalanceRow:
+    provider: ProviderName
+    label: str
+    anchor_date: date
+    anchor_amount: Decimal
+    purchases_since: Decimal
+    spend_since: Decimal | None
+    estimated_balance: Decimal | None
+    currency: str
+    as_of: date
+
+
+@dataclass(frozen=True)
 class ProviderStatus:
     provider: ProviderName
     label: str
@@ -114,4 +127,18 @@ def summary_to_json(row: SummaryRow) -> dict[str, Any]:
         "amount": str(row.amount),
         "currency": row.currency,
         "records": row.records,
+    }
+
+
+def balance_to_json(row: BalanceRow) -> dict[str, Any]:
+    return {
+        "provider": row.provider,
+        "label": row.label,
+        "anchor_date": row.anchor_date.isoformat(),
+        "anchor_amount": str(row.anchor_amount),
+        "purchases_since": str(row.purchases_since),
+        "spend_since": None if row.spend_since is None else str(row.spend_since),
+        "estimated_balance": None if row.estimated_balance is None else str(row.estimated_balance),
+        "currency": row.currency,
+        "as_of": row.as_of.isoformat(),
     }
