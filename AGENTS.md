@@ -77,6 +77,14 @@ Configuration is via environment variables (or a local `.env`):
   pagination via `next_page`, grouped by `project_id`, `api_key_id`, `line_item`.
 - Anthropic: `GET /v1/organizations/cost_report`, RFC3339 UTC timestamps,
   pagination via `next_page`, grouped by `workspace_id` and `description`.
+- Anthropic reports finalized days only and 400s on a range containing no complete day,
+  with a misleading "ending date must be after starting date" message.
+  `AnthropicCostClient.fetch_costs` clamps the range end to the current UTC date
+  (`_utc_today()`) and skips the request when nothing is left. The cutoff must be UTC,
+  not `date.today()` — the bucket boundaries are UTC midnight, so a local cutoff drops a
+  finalized day west of UTC and still triggers the 400 east of it. Keep this in the
+  client, not in `dates.py` — OpenAI does return intraday data and a shared clamp would
+  discard it. Pass `today=` to make it testable.
 - ID→name mapping is best-effort; on failure keep IDs and warn without leaking secrets.
 
 ## Release
