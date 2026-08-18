@@ -62,6 +62,7 @@ def balance_row(**overrides):
         anchor_date=date(2026, 7, 1),
         anchor_amount=Decimal("100.00"),
         purchases_since=Decimal("20.00"),
+        adjustments_since=Decimal("0"),
         spend_since=Decimal("15.50"),
         estimated_balance=Decimal("104.50"),
         currency="USD",
@@ -107,5 +108,30 @@ def test_balance_csv_blank_cells_for_missing_values(capsys):
     output.print_balance_csv([balance_row(spend_since=None, estimated_balance=None)])
 
     lines = capsys.readouterr().out.splitlines()
-    assert lines[0] == "provider,label,anchor_date,anchor_amount,purchases_since,spend_since,estimated_balance,currency,as_of"
-    assert lines[1] == "openai,OpenAI Org,2026-07-01,100.00,20.00,,,USD,2026-07-25"
+    assert lines[0] == (
+        "provider,label,anchor_date,anchor_amount,purchases_since,adjustments_since,"
+        "spend_since,estimated_balance,currency,as_of"
+    )
+    assert lines[1] == "openai,OpenAI Org,2026-07-01,100.00,20.00,0,,,USD,2026-07-25"
+
+
+def test_balance_table_shows_negative_adjustment(monkeypatch):
+    buffer = StringIO()
+    monkeypatch.setattr(
+        output,
+        "Console",
+        lambda: RichConsole(file=buffer, force_terminal=False, width=180, color_system=None),
+    )
+
+    output.print_balance_table([balance_row(adjustments_since=Decimal("-13.73"))])
+    rendered = buffer.getvalue()
+
+    assert "Adjustments" in rendered
+    assert "$-13.73" in rendered
+
+
+def test_balance_json_includes_adjustments(capsys):
+    output.print_balance_json([balance_row(adjustments_since=Decimal("-13.73"))])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["balances"][0]["adjustments_since"] == "-13.73"

@@ -52,7 +52,7 @@ def test_append_and_load_round_trip(tmp_path):
     assert [str(e.amount) for e in entries] == ["120.50", "25.00"]
     assert entries[0].note == "after top-up"
     raw = json.loads(path.read_text())
-    assert raw["version"] == 1
+    assert raw["version"] == 2
     assert raw["entries"][0]["amount"] == "120.50"
     assert raw["entries"][1]["amount"] == "25.00"
     assert "note" not in raw["entries"][1]
@@ -85,7 +85,7 @@ def test_append_preserves_unknown_keys(tmp_path):
         json.dumps([1, 2]),
         json.dumps({"entries": []}),
         json.dumps({"version": 0, "entries": []}),
-        json.dumps({"version": 2, "entries": []}),
+        json.dumps({"version": 3, "entries": []}),
         json.dumps({"version": 1, "entries": {}}),
         json.dumps({"version": 1, "entries": [{"provider": "google", "type": "set", "date": "2026-07-01", "amount": "1"}]}),
         json.dumps({"version": 1, "entries": [{"provider": "openai", "type": "reset", "date": "2026-07-01", "amount": "1"}]}),
@@ -307,3 +307,128 @@ def test_find_anchor_returns_latest_set():
 
     assert anchor.date == date(2026, 7, 1)
     assert find_anchor(entries, "anthropic") is None
+
+
+def test_load_accepts_version_1_ledger(tmp_path):
+    path = tmp_path / "ledger.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "entries": [{"provider": "openai", "type": "set", "date": "2026-07-01", "amount": "100.00"}],
+            }
+        )
+    )
+
+    entries = load_entries(path)
+
+    assert entries[0].amount == Decimal("100.00")
+
+
+def test_append_upgrades_version_1_ledger_to_version_2(tmp_path):
+    path = tmp_path / "ledger.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "entries": [{"provider": "openai", "type": "set", "date": "2026-07-01", "amount": "100.00"}],
+            }
+        )
+    )
+
+    append_entry(path, entry(type="adjust", day="2026-07-05", amount="-13.73"))
+
+    raw = json.loads(path.read_text())
+    assert raw["version"] == 2
+    assert len(raw["entries"]) == 2
+
+
+def test_adjust_entry_round_trips(tmp_path):
+    path = tmp_path / "ledger.json"
+
+    append_entry(path, entry(amount="100.00"))
+    append_entry(path, entry(type="adjust", day="2026-07-05", amount="-13.73", note="credits expired"))
+
+    entries = load_entries(path)
+    assert entries[1].type == "adjust"
+    assert entries[1].amount == Decimal("-13.73")
+    assert entries[1].note == "credits expired"
+
+
+def test_compute_applies_negative_adjustment():
+    entries = [
+        entry(amount="100.00"),
+        entry(type="adjust", day="2026-07-05", amount="-13.73", note="credits expired"),
+    ]
+
+    row, warnings = compute_balance_row("openai", "OpenAI", entries, [spend("2026-07-02", "10.00")], TODAY)
+
+    assert warnings == []
+    assert row.purchases_since == Decimal("0")
+    assert row.adjustments_since == Decimal("-13.73")
+    assert row.spend_since == Decimal("10.00")
+    assert row.estimated_balance == Decimal("76.27")
+
+
+def test_compute_applies_positive_adjustment():
+    entries = [entry(amount="100.00"), entry(type="adjust", day="2026-07-05", amount="5.00", note="refund")]
+
+    row, _ = compute_balance_row("openai", "OpenAI", entries, [], TODAY)
+
+    assert row.adjustments_since == Decimal("5.00")
+    assert row.estimated_balance == Decimal("105.00")
+
+
+def test_compute_sums_adds_and_adjustments_separately():
+    entries = [
+        entry(amount="100.00"),
+        entry(type="add", day="2026-07-05", amount="20.00"),
+        entry(type="adjust", day="2026-07-06", amount="-13.73"),
+        entry(type="adjust", day="2026-07-07", amount="-1.27"),
+    ]
+
+    row, _ = compute_balance_row("openai", "OpenAI", entries, [], TODAY)
+
+    assert row.purchases_since == Decimal("20.00")
+    assert row.adjustments_since == Decimal("-15.00")
+    assert row.estimated_balance == Decimal("105.00")
+
+
+def test_compute_ignores_adjustment_before_set():
+    entries = [
+        entry(type="adjust", day="2026-06-20", amount="-50.00"),
+        entry(day="2026-07-01", amount="100.00"),
+    ]
+
+    row, _ = compute_balance_row("openai", "OpenAI", entries, [], TODAY)
+
+    assert row.adjustments_since == Decimal("0")
+    assert row.estimated_balance == Decimal("100.00")
+
+
+def test_compute_excludes_non_anchor_currency_adjustment_with_warning():
+    entries = [
+        entry(amount="100.00"),
+        entry(type="adjust", day="2026-07-05", amount="-9.00", currency="EUR"),
+    ]
+
+    row, warnings = compute_balance_row("openai", "OpenAI", entries, [], TODAY)
+
+    assert row.adjustments_since == Decimal("0")
+    assert row.estimated_balance == Decimal("100.00")
+    assert len(warnings) == 1
+    assert "EUR" in warnings[0]
+    assert "adjustment" in warnings[0]
+
+
+def test_compute_adjustment_only_counts_matching_provider():
+    entries = [
+        entry(amount="100.00"),
+        entry(provider="anthropic", amount="50.00"),
+        entry(provider="anthropic", type="adjust", day="2026-07-05", amount="-4.00"),
+    ]
+
+    row, _ = compute_balance_row("openai", "OpenAI", entries, [], TODAY)
+
+    assert row.adjustments_since == Decimal("0")
+    assert row.estimated_balance == Decimal("100.00")

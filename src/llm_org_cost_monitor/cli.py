@@ -137,6 +137,20 @@ def balance_add(
     _record_ledger_entry("add", provider, amount, date_, note)
 
 
+@balance_app.command("adjust")
+def balance_adjust(
+    provider: Annotated[LedgerProvider, typer.Argument(help="Provider the adjustment belongs to.")],
+    amount: Annotated[
+        str,
+        typer.Argument(help="Signed correction, e.g. -13.73 for expired credits or 5.00 for a refund."),
+    ],
+    date_: Annotated[str | None, typer.Option("--date", help="Adjustment date, YYYY-MM-DD. Defaults to today.")] = None,
+    note: Annotated[str | None, typer.Option(help="Optional note stored with the entry.")] = None,
+) -> None:
+    """Record a credit change the cost APIs cannot see, such as an expiry or refund."""
+    _record_ledger_entry("adjust", provider, amount, date_, note)
+
+
 @balance_app.command("log")
 def balance_log(
     provider: Annotated[ProviderOption, typer.Option(help="Provider to include.")] = "all",
@@ -245,7 +259,7 @@ def balance_show(
 
 
 def _record_ledger_entry(
-    entry_type: Literal["set", "add"],
+    entry_type: Literal["set", "add", "adjust"],
     provider: LedgerProvider,
     amount: str,
     date_str: str | None,
@@ -261,6 +275,8 @@ def _record_ledger_entry(
         raise typer.BadParameter("balance for 'set' must be >= 0")
     if entry_type == "add" and value <= 0:
         raise typer.BadParameter("top-up for 'add' must be > 0")
+    if entry_type == "adjust" and value == 0:
+        raise typer.BadParameter("adjustment for 'adjust' must be nonzero")
 
     if date_str is None:
         entry_date = date.today()
@@ -288,7 +304,7 @@ def _record_ledger_entry(
         err_console.print(f"Error: {exc}")
         raise typer.Exit(code=1) from exc
 
-    label = "balance snapshot" if entry_type == "set" else "top-up"
+    label = {"set": "balance snapshot", "add": "top-up", "adjust": "adjustment"}[entry_type]
     typer.echo(f"Recorded {provider} {label} {value} USD on {entry_date.isoformat()} in {settings.ledger_path}")
 
 

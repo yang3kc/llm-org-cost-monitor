@@ -74,6 +74,7 @@ class BalanceRow:
     anchor_date: date
     anchor_amount: Decimal
     purchases_since: Decimal
+    adjustments_since: Decimal
     spend_since: Decimal | None
     estimated_balance: Decimal | None
     currency: str
@@ -137,6 +138,7 @@ def balance_to_json(row: BalanceRow) -> dict[str, Any]:
         "anchor_date": row.anchor_date.isoformat(),
         "anchor_amount": str(row.anchor_amount),
         "purchases_since": str(row.purchases_since),
+        "adjustments_since": str(row.adjustments_since),
         "spend_since": None if row.spend_since is None else str(row.spend_since),
         "estimated_balance": None if row.estimated_balance is None else str(row.estimated_balance),
         "currency": row.currency,

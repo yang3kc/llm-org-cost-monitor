@@ -62,6 +62,7 @@ def print_balance_table(rows: list[BalanceRow]) -> None:
     table.add_column("Anchor Date")
     table.add_column("Anchor Amount", justify="right")
     table.add_column("Purchases Since", justify="right")
+    table.add_column("Adjustments", justify="right")
     table.add_column("Spend Since", justify="right")
     table.add_column("Est. Balance", justify="right")
     table.add_column("As Of")
@@ -72,6 +73,7 @@ def print_balance_table(rows: list[BalanceRow]) -> None:
             row.anchor_date.isoformat(),
             _money(row.anchor_amount),
             _money(row.purchases_since),
+            _money(row.adjustments_since),
             "-" if row.spend_since is None else _money(row.spend_since),
             "-" if row.estimated_balance is None else _money(row.estimated_balance),
             row.as_of.isoformat(),
@@ -91,6 +93,7 @@ def print_balance_csv(rows: list[BalanceRow]) -> None:
         "anchor_date",
         "anchor_amount",
         "purchases_since",
+        "adjustments_since",
         "spend_since",
         "estimated_balance",
         "currency",
@@ -106,6 +109,7 @@ def print_balance_csv(rows: list[BalanceRow]) -> None:
                 "anchor_date": row.anchor_date.isoformat(),
                 "anchor_amount": str(row.anchor_amount),
                 "purchases_since": str(row.purchases_since),
+                "adjustments_since": str(row.adjustments_since),
                 "spend_since": "" if row.spend_since is None else str(row.spend_since),
                 "estimated_balance": "" if row.estimated_balance is None else str(row.estimated_balance),
                 "currency": row.currency,

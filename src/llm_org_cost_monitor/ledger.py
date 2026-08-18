@@ -10,9 +10,10 @@ from typing import Any, Literal
 
 from .models import BalanceRow, CostRecord, ProviderName
 
-LEDGER_VERSION = 1
+LEDGER_VERSION = 2
+SUPPORTED_LEDGER_VERSIONS = (1, 2)
 
-EntryType = Literal["set", "add"]
+EntryType = Literal["set", "add", "adjust"]
 
 
 class LedgerError(RuntimeError):
@@ -44,8 +45,9 @@ def load_entries(path: Path) -> list[LedgerEntry]:
     version = raw.get("version")
     if not isinstance(version, int) or isinstance(version, bool):
         raise LedgerError(f"{path}: missing or invalid ledger version")
-    if version != LEDGER_VERSION:
-        raise LedgerError(f"{path}: unsupported ledger version {version} (this tool supports version {LEDGER_VERSION})")
+    if version not in SUPPORTED_LEDGER_VERSIONS:
+        supported = ", ".join(str(item) for item in SUPPORTED_LEDGER_VERSIONS)
+        raise LedgerError(f"{path}: unsupported ledger version {version} (this tool supports version {supported})")
     raw_entries = raw.get("entries")
     if not isinstance(raw_entries, list):
         raise LedgerError(f"{path}: 'entries' must be a list")
@@ -105,16 +107,21 @@ def compute_balance_row(
     anchor = ordered[anchor_index]
 
     purchases = Decimal("0")
+    adjustments = Decimal("0")
     for entry in ordered[anchor_index + 1 :]:
-        if entry.type != "add":
+        if entry.type not in ("add", "adjust"):
             continue
         if entry.currency.upper() != anchor.currency.upper():
+            kind = "top-up" if entry.type == "add" else "adjustment"
             warnings.append(
-                f"{provider}: excluded {entry.currency} top-up dated {entry.date.isoformat()}"
+                f"{provider}: excluded {entry.currency} {kind} dated {entry.date.isoformat()}"
                 f" (ledger anchor currency is {anchor.currency})"
             )
             continue
-        purchases += entry.amount
+        if entry.type == "add":
+            purchases += entry.amount
+        else:
+            adjustments += entry.amount
 
     spend_since: Decimal | None = None
     estimated: Decimal | None = None
@@ -128,7 +135,7 @@ def compute_balance_row(
                 )
                 continue
             spend_since += record.amount
-        estimated = anchor.amount + purchases - spend_since
+        estimated = anchor.amount + purchases + adjustments - spend_since
 
     row = BalanceRow(
         provider=provider,
@@ -136,6 +143,7 @@ def compute_balance_row(
         anchor_date=anchor.date,
         anchor_amount=anchor.amount,
         purchases_since=purchases,
+        adjustments_since=adjustments,
         spend_since=spend_since,
         estimated_balance=estimated,
         currency=anchor.currency.upper(),
@@ -165,7 +173,7 @@ def _parse_entry(path: Path, index: int, item: Any) -> LedgerEntry:
     if provider not in ("openai", "anthropic"):
         fail(f"invalid provider {provider!r}")
     entry_type = item.get("type")
-    if entry_type not in ("set", "add"):
+    if entry_type not in ("set", "add", "adjust"):
         fail(f"invalid type {entry_type!r}")
     try:
         entry_date = date.fromisoformat(str(item.get("date")))

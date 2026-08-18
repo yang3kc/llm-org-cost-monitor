@@ -106,30 +106,39 @@ Neither OpenAI nor Anthropic exposes prepaid credit balance via API, so the CLI 
 ```bash
 llm-org-cost-monitor balance set openai 120.00 --date 2026-07-01 --note "after top-up"
 llm-org-cost-monitor balance add openai 25.00
+llm-org-cost-monitor balance adjust --date 2026-07-31 --note "credits expired" -- openai -13.73
 llm-org-cost-monitor balance log
 llm-org-cost-monitor balance show
 llm-org-cost-monitor balance show --provider anthropic --format json
 ```
 
 - `balance set` records a balance snapshot (the anchor) copied from the provider console.
-- `balance add` records a credit top-up made after the last snapshot.
+- `balance add` records a credit top-up made after the last snapshot. The amount must be positive.
+- `balance adjust` records a credit change the cost APIs cannot see, such as expired credits or a refund. The amount is signed and must be nonzero: negative removes credit, positive adds it.
 - `balance log` lists ledger entries; `balance show` estimates current balances.
+
+Because a negative amount looks like a command-line option, pass `--` before the arguments:
+
+```bash
+llm-org-cost-monitor balance adjust --note "credits expired" -- openai -13.73
+```
 
 The estimate is computed as:
 
 ```text
 estimated balance = latest "set" amount
                   + "add" amounts recorded after that "set"
+                  + "adjust" amounts recorded after that "set"   (signed)
                   - API-reported spend from the "set" date through today
 ```
 
-Entries are ordered by date; entries sharing a date keep file order. `add` entries dated before the latest `set` are ignored because the snapshot already reflects them.
+Entries are ordered by date; entries sharing a date keep file order. `add` and `adjust` entries dated before the latest `set` are ignored because the snapshot already reflects them.
 
 The ledger lives at `~/.config/llm-org-cost-monitor/ledger.json` by default (override with `LLM_ORG_COST_LEDGER`). Amounts are stored as strings so they round-trip exactly:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "entries": [
     {
       "provider": "openai",
@@ -139,19 +148,30 @@ The ledger lives at `~/.config/llm-org-cost-monitor/ledger.json` by default (ove
       "currency": "USD",
       "note": "after top-up",
       "created_at": "2026-07-01T15:04:05Z"
+    },
+    {
+      "provider": "openai",
+      "type": "adjust",
+      "date": "2026-07-31",
+      "amount": "-13.73",
+      "currency": "USD",
+      "note": "credits expired",
+      "created_at": "2026-07-31T15:04:05Z"
     }
   ]
 }
 ```
 
-Hand-editing the file is supported; unknown entry keys are preserved. A negative `add` amount is the escape hatch for corrections — the CLI rejects negative amounts, but the loader accepts them.
+Ledger format version 2 added the `adjust` entry type. This tool reads version 1 and version 2 files, and writes version 2. A version 1 ledger is upgraded in place the next time an entry is appended, after which older builds of the tool will refuse to read it.
+
+Hand-editing the file is supported; unknown entry keys are preserved.
 
 Accuracy caveats:
 
 - The estimate is deliberately conservative: spend on the anchor date itself is subtracted in full, even spend that occurred before you took the snapshot, so the estimate can be slightly lower than reality on and near the anchor date.
 - In the other direction, providers report spend with some lag, so the most recent usage may not be counted yet; intraday estimates can run slightly high until reporting catches up.
 - Provider cost APIs report usage costs only. Taxes, fees, and other invoice adjustments are not included.
-- Expired or promotional credits are invisible to this tool.
+- Expired or promotional credits are invisible to the cost APIs. Record them yourself with `balance adjust` or they will not show up in the estimate.
 - Only USD is supported; spend records in other currencies are excluded with a warning.
 - Re-run `balance set` with the console balance after each top-up. This keeps the estimate anchored to reality and keeps the spend lookback short — Anthropic's cost report pages 31 days per request, so a months-old anchor makes `balance show` slower.
 

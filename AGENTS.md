@@ -17,11 +17,11 @@ Both map to `llm_org_cost_monitor.cli:app`.
 ```
 src/llm_org_cost_monitor/
   cli.py         Typer app: `summary` and `doctor` commands plus the `balance` sub-app
-                 (set/add/log/show), arg parsing, date resolution
+                 (set/add/adjust/log/show), arg parsing, date resolution
   config.py      Loads settings from env / .env (python-dotenv), ledger path resolution
   dates.py       DateRange, period + CLI date-range parsing (mtd, last-7d, last-30d, --start/--end)
   ledger.py      Local prepaid-balance ledger: load/append entries, anchor selection,
-                 compute_balance_row() estimate math
+                 compute_balance_row() estimate math, ledger format versioning
   models.py      CostRecord / SummaryRow / BalanceRow / ProviderStatus, GroupBy, summarize(), JSON serialization
   output.py      Rich table, JSON, and CSV renderers (cost summaries + balance rows)
   providers.py   OpenAICostClient + AnthropicCostClient (httpx), pagination, name mapping, errors
@@ -58,13 +58,18 @@ Configuration is via environment variables (or a local `.env`):
   (e.g. Anthropic has no API-key attribution → `Unsupported/Unattributed`).
 - Dates: `--start`/`--end` are inclusive calendar dates in the CLI; conversion to
   the providers' exclusive end timestamp happens internally (`dates.py`).
-- **`balance set`/`add`/`log` must work without API keys.** Only `balance show`
+- **`balance set`/`add`/`adjust`/`log` must work without API keys.** Only `balance show`
   may construct provider clients. CLI tests for balance commands must point
   `LLM_ORG_COST_LEDGER` at a tmp path — the repo `.env` is loaded by
   `load_settings()`, and a forgotten override writes to the real ledger.
 - Keep the "Balance tracking" accuracy caveats in `README.md` in sync with the
   estimate math in `ledger.py` (conservative anchor-day handling, USD only,
-  taxes/fees and expired credits invisible).
+  taxes/fees invisible; expired credits must be recorded with `balance adjust`).
+- **Ledger entry types are `set`, `add`, and `adjust`.** `set` is the anchor and must
+  be >= 0, `add` must be > 0, `adjust` is signed and must be nonzero. Adding an entry
+  type is a ledger format change: bump `LEDGER_VERSION`, extend
+  `SUPPORTED_LEDGER_VERSIONS` so older files still load, and update the format notes
+  in `README.md`.
 
 ## Provider API notes
 

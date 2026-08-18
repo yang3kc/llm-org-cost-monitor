@@ -299,7 +299,7 @@ def test_balance_set_add_log_work_without_keys(monkeypatch, tmp_path):
     assert add_result.exit_code == 0
     assert log_result.exit_code == 0
     raw = json.loads(ledger_path.read_text())
-    assert raw["version"] == 1
+    assert raw["version"] == 2
     assert [(item["type"], item["amount"]) for item in raw["entries"]] == [("set", "120.50"), ("add", "25.00")]
     assert raw["entries"][0]["note"] == "after top-up"
     assert "120.50" in log_result.stdout
@@ -312,6 +312,8 @@ def test_balance_set_add_log_work_without_keys(monkeypatch, tmp_path):
         ["balance", "set", "openai", "--", "-5"],
         ["balance", "add", "openai", "0"],
         ["balance", "add", "openai", "--", "-1"],
+        ["balance", "adjust", "openai", "0"],
+        ["balance", "adjust", "openai", "abc"],
         ["balance", "set", "openai", "10", "--date", "2026-13-01"],
     ],
 )
@@ -425,7 +427,10 @@ def test_balance_show_csv_header(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     header = result.stdout.splitlines()[0]
-    assert header == "provider,label,anchor_date,anchor_amount,purchases_since,spend_since,estimated_balance,currency,as_of"
+    assert header == (
+        "provider,label,anchor_date,anchor_amount,purchases_since,adjustments_since,"
+        "spend_since,estimated_balance,currency,as_of"
+    )
 
 
 def test_balance_show_empty_ledger_exits_1(monkeypatch, tmp_path):
@@ -448,3 +453,83 @@ def test_balance_corrupt_ledger_exits_1(monkeypatch, tmp_path):
     assert log_result.exit_code == 1
     assert set_result.exit_code == 1
     assert "Error:" in show_result.stderr
+
+
+def test_balance_adjust_works_without_keys(monkeypatch, tmp_path):
+    ledger_path = patch_ledger(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "OpenAICostClient", NeverBuiltClient)
+    monkeypatch.setattr(cli, "AnthropicCostClient", NeverBuiltClient)
+    monkeypatch.delenv("OPENAI_ADMIN_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_ADMIN_KEY", raising=False)
+
+    set_result = runner.invoke(cli.app, ["balance", "set", "openai", "100.00", "--date", "2020-01-05"])
+    adjust_result = runner.invoke(
+        cli.app,
+        ["balance", "adjust", "--date", "2020-01-10", "--note", "credits expired", "--", "openai", "-13.73"],
+    )
+
+    assert set_result.exit_code == 0
+    assert adjust_result.exit_code == 0
+    raw = json.loads(ledger_path.read_text())
+    assert [(item["type"], item["amount"]) for item in raw["entries"]] == [("set", "100.00"), ("adjust", "-13.73")]
+    assert raw["entries"][1]["note"] == "credits expired"
+
+
+def test_balance_adjust_accepts_negative_amount_after_separator(monkeypatch, tmp_path):
+    ledger_path = patch_ledger(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "OpenAICostClient", NeverBuiltClient)
+    monkeypatch.setattr(cli, "AnthropicCostClient", NeverBuiltClient)
+
+    result = runner.invoke(cli.app, ["balance", "adjust", "openai", "--", "-13.73"])
+
+    assert result.exit_code == 0
+    raw = json.loads(ledger_path.read_text())
+    assert raw["entries"][0]["amount"] == "-13.73"
+
+
+def test_balance_adjust_shows_in_log(monkeypatch, tmp_path):
+    patch_ledger(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "OpenAICostClient", NeverBuiltClient)
+    monkeypatch.setattr(cli, "AnthropicCostClient", NeverBuiltClient)
+
+    runner.invoke(cli.app, ["balance", "adjust", "--note", "credits expired", "--", "openai", "-13.73"])
+    log_result = runner.invoke(cli.app, ["balance", "log"])
+
+    assert log_result.exit_code == 0
+    assert "adjust" in log_result.stdout
+    assert "-13.73" in log_result.stdout
+
+
+def test_balance_show_json_applies_adjustments(monkeypatch, tmp_path):
+    ledger_path = patch_balance_clients(monkeypatch, tmp_path)
+    write_ledger(
+        ledger_path,
+        [
+            ledger_entry("openai", "set", "2020-01-05", "100.00"),
+            ledger_entry("openai", "add", "2020-01-10", "20.00"),
+            ledger_entry("openai", "adjust", "2020-01-12", "-13.73"),
+            ledger_entry("anthropic", "set", "2020-02-01", "50.00"),
+        ],
+    )
+
+    result = runner.invoke(cli.app, ["balance", "show", "--format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    by_provider = {row["provider"]: row for row in payload["balances"]}
+    assert by_provider["openai"]["purchases_since"] == "20.00"
+    assert by_provider["openai"]["adjustments_since"] == "-13.73"
+    assert by_provider["openai"]["estimated_balance"] == "90.77"
+    assert by_provider["anthropic"]["adjustments_since"] == "0"
+
+
+def test_balance_adjust_confirmation_says_adjustment(monkeypatch, tmp_path):
+    patch_ledger(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "OpenAICostClient", NeverBuiltClient)
+    monkeypatch.setattr(cli, "AnthropicCostClient", NeverBuiltClient)
+
+    result = runner.invoke(cli.app, ["balance", "adjust", "openai", "--", "-13.73"])
+
+    assert result.exit_code == 0
+    assert "adjustment" in result.stdout
+    assert "top-up" not in result.stdout
