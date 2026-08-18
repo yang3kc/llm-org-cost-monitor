@@ -432,3 +432,35 @@ def test_compute_adjustment_only_counts_matching_provider():
 
     assert row.adjustments_since == Decimal("0")
     assert row.estimated_balance == Decimal("100.00")
+
+
+def test_compute_warns_on_negative_add_and_still_counts_it():
+    entries = [entry(amount="100.00"), entry(type="add", day="2026-07-05", amount="-13.73")]
+
+    row, warnings = compute_balance_row("openai", "OpenAI", entries, [], TODAY)
+
+    assert row.purchases_since == Decimal("-13.73")
+    assert row.estimated_balance == Decimal("86.27")
+    assert len(warnings) == 1
+    assert "negative 'add'" in warnings[0]
+    assert "adjust" in warnings[0]
+
+
+def test_compute_does_not_warn_on_negative_adjust():
+    entries = [entry(amount="100.00"), entry(type="adjust", day="2026-07-05", amount="-13.73")]
+
+    _, warnings = compute_balance_row("openai", "OpenAI", entries, [], TODAY)
+
+    assert warnings == []
+
+
+def test_compute_does_not_warn_on_negative_add_before_anchor():
+    entries = [
+        entry(type="add", day="2026-06-20", amount="-5.00"),
+        entry(day="2026-07-01", amount="100.00"),
+    ]
+
+    row, warnings = compute_balance_row("openai", "OpenAI", entries, [], TODAY)
+
+    assert warnings == []
+    assert row.purchases_since == Decimal("0")

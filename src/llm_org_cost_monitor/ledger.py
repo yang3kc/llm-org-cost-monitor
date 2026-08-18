@@ -119,6 +119,11 @@ def compute_balance_row(
             )
             continue
         if entry.type == "add":
+            if entry.amount < 0:
+                warnings.append(
+                    f"{provider}: negative 'add' entry dated {entry.date.isoformat()} is counted as a purchase;"
+                    f" record credit reductions as 'adjust' entries instead"
+                )
             purchases += entry.amount
         else:
             adjustments += entry.amount

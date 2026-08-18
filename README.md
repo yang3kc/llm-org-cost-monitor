@@ -164,7 +164,7 @@ The ledger lives at `~/.config/llm-org-cost-monitor/ledger.json` by default (ove
 
 Ledger format version 2 added the `adjust` entry type. This tool reads version 1 and version 2 files, and writes version 2. A version 1 ledger is upgraded in place the next time an entry is appended, after which older builds of the tool will refuse to read it.
 
-Hand-editing the file is supported; unknown entry keys are preserved.
+Hand-editing the file is supported; unknown entry keys are preserved. The CLI enforces the sign rules above, but the loader deliberately does not, so a hand-edited file can hold entries the CLI would refuse to write. Record credit reductions as `adjust` entries: a negative `add` still loads and still produces the right total, but it is reported under purchases rather than adjustments, and `balance show` warns when it finds one.
 
 Accuracy caveats:
 
