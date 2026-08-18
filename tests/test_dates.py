@@ -1,6 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 
-from llm_org_cost_monitor.dates import parse_cli_range, range_for_period
+import pytest
+
+from llm_org_cost_monitor.dates import parse_cli_range, range_for_period, range_since
 
 
 def test_mtd_boundaries():
@@ -24,3 +26,28 @@ def test_cli_range_treats_end_as_inclusive():
 
     assert date_range.start == date(2026, 7, 1)
     assert date_range.end_exclusive == date(2026, 7, 6)
+
+
+def test_range_since_with_injected_today():
+    date_range = range_since(date(2026, 7, 1), today=date(2026, 7, 5))
+
+    assert date_range.start == date(2026, 7, 1)
+    assert date_range.end_exclusive == date(2026, 7, 6)
+
+
+def test_range_since_start_equals_today():
+    date_range = range_since(date(2026, 7, 5), today=date(2026, 7, 5))
+
+    assert date_range.start == date(2026, 7, 5)
+    assert date_range.end_inclusive == date(2026, 7, 5)
+
+
+def test_range_since_rejects_start_after_today():
+    with pytest.raises(ValueError):
+        range_since(date(2026, 7, 6), today=date(2026, 7, 5))
+
+
+def test_range_since_defaults_to_real_today():
+    date_range = range_since(date(2020, 1, 1))
+
+    assert date_range.end_exclusive == date.today() + timedelta(days=1)
