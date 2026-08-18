@@ -9,7 +9,7 @@ import httpx
 from .dates import DateRange
 from .models import CostRecord, ProviderStatus
 
-USER_AGENT = "llm-org-cost-monitor/0.1.2"
+USER_AGENT = "llm-org-cost-monitor/0.2.0"
 
 
 class ProviderAPIError(RuntimeError):
