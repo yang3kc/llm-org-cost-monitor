@@ -4,7 +4,7 @@ from decimal import Decimal
 import httpx
 import pytest
 
-from llm_org_cost_monitor.dates import DateRange
+from llm_org_cost_monitor.dates import DateRange, range_for_period
 from llm_org_cost_monitor.providers import AnthropicCostClient, OpenAICostClient, ProviderAPIError
 
 
@@ -141,3 +141,62 @@ def test_empty_result():
 
     assert records == []
     assert warnings == []
+
+
+def _cost_report_handler(seen):
+    """Handler recording cost_report query params; fails the test if that path is hit unexpectedly."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/organizations/workspaces":
+            return httpx.Response(200, json={"data": [], "has_more": False})
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json={"data": [], "has_more": False, "next_page": None})
+
+    return handler
+
+
+def test_anthropic_skips_request_when_range_has_no_complete_day():
+    seen = []
+    client = AnthropicCostClient("sk-ant-admin01-test", client=make_client(_cost_report_handler(seen)))
+
+    records, warnings = client.fetch_costs(
+        DateRange(date(2026, 8, 1), date(2026, 8, 2)), today=date(2026, 8, 1)
+    )
+
+    assert records == []
+    assert seen == [], "no cost_report request should be sent when no complete day is in range"
+    assert len(warnings) == 1
+    assert "no complete days" in warnings[0]
+
+
+def test_anthropic_mtd_on_first_of_month_short_circuits():
+    seen = []
+    client = AnthropicCostClient("sk-ant-admin01-test", client=make_client(_cost_report_handler(seen)))
+    first_of_month = date(2026, 8, 1)
+
+    records, warnings = client.fetch_costs(range_for_period("mtd", first_of_month), today=first_of_month)
+
+    assert records == []
+    assert seen == []
+    assert "no complete days" in warnings[0]
+
+
+def test_anthropic_clamps_in_progress_day_off_the_range_end():
+    seen = []
+    client = AnthropicCostClient("sk-ant-admin01-test", client=make_client(_cost_report_handler(seen)))
+
+    _, warnings = client.fetch_costs(DateRange(date(2026, 8, 1), date(2026, 8, 4)), today=date(2026, 8, 3))
+
+    assert warnings == []
+    assert seen[0]["starting_at"] == "2026-08-01T00:00:00Z"
+    assert seen[0]["ending_at"] == "2026-08-03T00:00:00Z", "in-progress day should be dropped from the end"
+
+
+def test_anthropic_leaves_fully_past_range_untouched():
+    seen = []
+    client = AnthropicCostClient("sk-ant-admin01-test", client=make_client(_cost_report_handler(seen)))
+
+    _, warnings = client.fetch_costs(DateRange(date(2026, 8, 1), date(2026, 8, 3)), today=date(2026, 8, 18))
+
+    assert warnings == []
+    assert seen[0]["ending_at"] == "2026-08-03T00:00:00Z"

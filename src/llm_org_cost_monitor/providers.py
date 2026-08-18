@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -135,13 +135,28 @@ class AnthropicCostClient:
             "User-Agent": USER_AGENT,
         }
 
-    def fetch_costs(self, date_range: DateRange) -> tuple[list[CostRecord], list[str]]:
+    def fetch_costs(self, date_range: DateRange, today: date | None = None) -> tuple[list[CostRecord], list[str]]:
         warnings: list[str] = []
+        # Anthropic reports finalized days only. It drops the in-progress day from the
+        # range, so a range containing no complete day is rejected with a misleading
+        # "ending date must be after starting date" 400. Clamp to complete days here and
+        # skip the request when nothing is left. OpenAI does return intraday data, so
+        # this stays provider-specific rather than moving into DateRange.
+        today = today or date.today()
+        effective_end = min(date_range.end_exclusive, today)
+        if effective_end <= date_range.start:
+            warnings.append(
+                f"anthropic: no complete days in {date_range.start.isoformat()}"
+                f"..{date_range.end_inclusive.isoformat()}; Anthropic reports finalized days only"
+            )
+            return [], warnings
+        effective_range = DateRange(start=date_range.start, end_exclusive=effective_end)
+
         workspace_names = self._safe_workspace_names(warnings)
         records: list[CostRecord] = []
         params: list[tuple[str, Any]] = [
-            ("starting_at", date_range.anthropic_start()),
-            ("ending_at", date_range.anthropic_end()),
+            ("starting_at", effective_range.anthropic_start()),
+            ("ending_at", effective_range.anthropic_end()),
             ("bucket_width", "1d"),
             ("limit", 31),
             ("group_by[]", "workspace_id"),

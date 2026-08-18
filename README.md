@@ -181,6 +181,10 @@ OpenAI uses `GET /v1/organization/costs` with `bucket_width=1d`, Unix UTC timest
 
 Anthropic uses `GET /v1/organizations/cost_report` with RFC3339 UTC timestamps, pagination via `next_page`, and grouping by `workspace_id` and `description`.
 
+Anthropic reports finalized days only. It discards the in-progress day from a requested range, and if that leaves nothing it returns `400 Invalid date range: ending date must be after starting date` even when the end is after the start. The tool therefore clamps the Anthropic range end to the current day and skips the request entirely when no complete day remains, reporting a warning instead of an error. This affects any range starting today, including `--period mtd` on the first of a month and `balance show` with an anchor recorded today.
+
+OpenAI does return intraday data, so the clamp is applied only to Anthropic rather than to the shared date range.
+
 The tool best-effort maps OpenAI project IDs and Anthropic workspace IDs to names. If mapping fails, it keeps IDs and prints a warning without exposing secrets.
 
 Official references:
