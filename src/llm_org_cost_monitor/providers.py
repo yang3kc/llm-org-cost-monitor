@@ -142,7 +142,11 @@ class AnthropicCostClient:
         # "ending date must be after starting date" 400. Clamp to complete days here and
         # skip the request when nothing is left. OpenAI does return intraday data, so
         # this stays provider-specific rather than moving into DateRange.
-        today = today or date.today()
+        # The cutoff must be the UTC date, since the bucket boundaries below are UTC
+        # midnight. Using the local date gets both directions wrong: west of UTC it drops
+        # a day that has already finalized, and east of UTC it still requests an
+        # all-incomplete range and triggers the 400 this clamp exists to prevent.
+        today = today or _utc_today()
         effective_end = min(date_range.end_exclusive, today)
         if effective_end <= date_range.start:
             warnings.append(
@@ -272,6 +276,11 @@ def _date_from_unix(value: Any):
     if value is None:
         raise ProviderAPIError("openai", 422, "bucket missing start_time")
     return datetime.fromtimestamp(int(value), tz=timezone.utc).date()
+
+
+def _utc_today() -> date:
+    """Current date in UTC. Anthropic's day buckets are UTC-midnight aligned."""
+    return datetime.now(timezone.utc).date()
 
 
 def _date_from_rfc3339(value: Any):
